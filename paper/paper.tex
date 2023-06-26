@@ -11,10 +11,303 @@
 
 \begin{abstract}
 
-This is a guide for authors who are preparing papers for JuliaCon using the \LaTeX{} document
-preparation system and the \verb|juliacon|  class file.
+\verb|AdaptiveHierarchicalRegularBinning.jl| computes a hierarchical space-partitioning
+tree for a given set of points of arbitrary dimensions, that divides the space and
+stores the reordered points offering efficient access. Space-partitioning data
+structures are vital for algorithms that exploit spatial distance to reduce
+computational complexity, see for example the Fast Multipole Method, and algorithms
+finding nearest neighbors and their applications.
 
 \end{abstract}
+
+\section{Overview}
+To partition a cloud of points, \verb|AdaptiveHierarchicalRegularBinning.jl| maps each
+point to a $1$ dimensional space filling curve, Morton or Z-order curve. The hierarchical
+tree is defined by the Morton index of each point.
+
+\begin{example}
+  For a $2$-dimensional space a target spatial tree with $2$ levels (other than the root).
+  Assume we compute a morton index of $(0100)_2$. The 2 most significant bits address the
+  top most level of the tree (the one directly under root).
+
+  The most significant bit
+  addresses the first dimension and the value $(0)_2$ signifies that the point lies in
+  the left-most half of the dimension.
+
+  The second most significant bit addresses the
+  second dimension and a value of $(1)_2$ signifies that the point lies in the right-most
+  half of the dimension (typicaly the lower-most half since this is $2$-dimensional,
+  right-most is a more generic term used for any number of dimensions).
+
+  % TODO Insert gaphs
+\end{example}
+
+Sorting in terms of these morton indices group the points togather for efficient access
+when the tree is iterated over. One natural way of sorting these indices is the
+\verb|Radixsort| where we sort based on the most significant radix and recurse for the
+remaining bits in the same fashion. This type of sorting process respects the nature of
+the morton index and thus can offer benefits over other sorting algorithms.
+
+One benefit of the \verb|Radixsort| is that it offers partial sorting capabilities. When
+the number of items within a bin is not high enough, there is no reason to continue the
+spatial partitioning and therefore there is no reason to continue sorting. Stopping
+\verb|Radixsort| at a specific level of recursion translates to stoping the tree at that
+level, there is a $1-1$ corespondance of the \verb|Radixsort| recursion and the tree.
+
+\verb|Radixsort| can also be trivialy parallelized, after sorting the based on the most
+significant radix the sub-arrays left to sort are mutually independant and thus offer
+themselves to easy parallelization.
+
+Sorting based on a radix is not trivial. Any sorting algorithm will work just fine but
+since small radix means small number of discrete values \verb|Countsort| is used.
+\verb|Countsort| offers trades-off spatial complexity for runtime complexity.
+The worst case runtime complexity of the algorithm is $O(n)$, which means that
+it scales linearly with the size of the array to sort. While the spatial complexity for
+the in-place variant is $O(max(r))$ where $r$ is the selected radix and $max(r)$ is the
+maximum value allowed by $r$.
+
+\verb|Countsort| can be parallelized as well, though not trivialy. The parallel variant
+requires a larger spatial complexity of $O(t\cdot max(r))$ where $t$ is the number of
+tasks allocated for the parallelization. The runtime complexity drops by the same factor
+$t$, $O(n/t)$. Spatial complexity is a limites the capabilities of the algorithm but even
+for large values of $t$ this auxilary space needed is not a bad trade-off.
+
+An other trade-off to note is the selection of radix. The bigger the radix the larger
+the load on the \verb|Countsort|. Since the time complexity of \verb|Countsort| is $O(n)$
+and even better for the parallel variant $O(n/t)$ we prefer that most of the work is
+delegated to \verb|Countsort| instead of the recursion process of \verb|Radixsort|.
+Selecting a large radix though, might have an adverse effect. The auxilary space needed
+is based on the max value of the radix which exponatialy grows as the radix grows, meaning
+that we quickly run out of memory for larger matrices.
+
+Our implementation is radix-agnostic, meaning that the user can select the radix. But the
+default approach is a radix of $16$ bits. $16$ bits means that at the worst case of
+morton indices of $128$ bits we will need to recurse $8$ times and the auxilary space needed
+is a factor of $2^{16} = 64kB$.
+
+
+\section{Usage}
+
+\begin{lstlisting}[language = Bash]
+  $ julia -t auto
+\end{lstlisting}
+
+\begin{lstlisting}[language = Julia]
+  using AdaptiveHierarchicalRegularBinning
+  n = 10000
+  d = 5
+  X = rand(n, d)
+
+  tree = regular_bin(X, dpt, sml_th; dims=2)
+  # X is no permuted to accomodate morton encoding
+
+  for leaf in Leaves(tree)
+  # iterates over the tree's leafs
+  end
+
+  for node in PreOrderDFS(tree)
+    # iterates over the tree's nodes in pre order
+  end
+
+  I, D = knn(tree, X)
+
+  original_perm!(tree, I, D)
+  # I and D are now refering to the
+  # original permutation
+\end{lstlisting}
+
+
+\section{Theory}
+Assuming a set of $n$ $d$-dimensional points $\mathcal{V}$, we represent $\mathcal{V}$ as
+the $d \times n$ matrix $V$. \verb|AdaptiveHierarchicalRegularBinning| uses Morton
+encoding to map each $d$-dimenensional point of $\mathcal{V}$ to a $1$-dimenensional
+space filling curve, Z-order curve.
+
+The mapping proccess requires 3 distinct steps.
+
+\begin{itemize}
+  \item Normalize $\mathcal{V}$ such that each vector $\vec{v}$ of $\mathcal{V}$
+  satisfies $\vec{v} \in [0,1)^d$
+  \item Quantize each dimension using an $l$-bit quantizer
+  \item Bit-interleave the output of the quantizer
+\end{itemize}
+
+\subsection{Normalization}
+In order to compute the hierarchical tree we first normalize $\mathcal{V}$.
+
+$$ \vec{v} \in \mathcal{H}, \forall \vec{v} \in \mathcal{V}$$
+
+Where $\mathcal{H}$ is the connected $d$-dimensional space that contains all vectors
+of $\mathcal{V}$.
+
+$$ H \triangleq [m_1, M_1] \times [m_2, M_2] \times \cdots \times [m_d, M_d] $$
+
+Where
+$$\space m_i = \min_j\left(V_{i,j}\right), \forall i \in \left\{1, 2, \cdots, d\right\}$$
+$$\space M_i = \max_j\left(V_{i,j}\right), \forall i \in \left\{1, 2, \cdots, d\right\}$$
+
+Therefore the goal of the normalization process is to define a $1-1$ function $\hat{f}$
+such that
+
+$$\hat{f}: \mathcal{H} \rightarrow [0, 1)^d$$
+
+Applying the function to each element of $\mathcal{V}$ defines a new set of points
+$\hat{\mathcal{V}}$ the elements of which are by definition inside a $d$-dimensional unit
+hypercube.
+
+$$ \hat{\mathcal{V}} \triangleq \left\{ \hat{f}\left(v\right) : v \in \mathcal{V} \right\}  $$
+$$ \vec{v} \in [0, 1)^d, \forall \vec{v} \in \hat{\mathcal{V}} $$
+
+Furthermore $\hat{f}$ must satisfy one more property. Namely, relative distances
+must be preserved.
+
+$$ ||\vec{v_1} - \vec{v_2}|| \geq ||\vec{v_1} - \vec{v_3}|| \Leftrightarrow ||\hat{f}(\vec{v_1}) - \hat{f}(\vec{v_2})|| \geq ||\hat{f}(\vec{v_1}) - \hat{f}(\vec{v_3})||$$
+$$ \forall \vec{v_1}, \vec{v_2}, \vec{v_3} \in \mathcal{V} $$
+
+Given this constraint we can therefore define the function $\hat{f}$ as such
+\begin{definition}
+  $$\hat{f}(\vec{v}) \triangleq \frac{\vec{v} - \vec{t}}{s}, \forall \vec{v} \in \mathcal{H} \quad \textrm{where}\; \vec{t} \in \mathbb{R}^d, s\in\mathbb{R}^*$$
+\end{definition}
+
+It can be proven that this definition satisfies the constraint
+
+\begin{lemma}
+  $$
+  \begin{matrix}
+    ||\hat{f}(\vec{v_1}) - \hat{f}(\vec{v_2})|| &=& || \frac{\vec{v_1} - \vec{t}}{s} - \frac{\vec{v_2} - \vec{t}}{s}||\\
+                                                &=& || \frac{\vec{v_1} - \vec{t} - \vec{v_2} + \vec{t}}{s}||\\
+                                                &=& || \frac{\vec{v_1} - \vec{v_2}}{s}||\\
+                                                &\triangleq& \frac{||\vec{v_1} - \vec{v_2}||}{|s|} & \forall v_1, v_2 \in \mathcal{V}\\
+  \end{matrix}
+  $$
+\end{lemma}
+\begin{proof}
+  $$
+  \begin{matrix}
+    ||\hat{f}(\vec{v_1}) - \hat{f}(\vec{v_2})|| \geq ||\hat{f}(\vec{v_1}) - \hat{f}(\vec{v_3})|| &\Leftrightarrow&\\
+    \frac{||\vec{v_1} - \vec{v_2}||}{|s|} \geq \frac{||\vec{v_1} - \vec{v_3}||}{|s|} &\Leftrightarrow&\\
+    ||\vec{v_1} - \vec{v_2}|| \geq ||\vec{v_1} - \vec{v_3}||
+  \end{matrix}
+  $$
+$$$$
+\end{proof}
+
+The effect that $\vec{t}$ and $s$ have on the space $\mathcal{H}$ can be computed as such
+$$
+\begin{matrix}
+  \hat{f}(\mathcal{H}) & = & \bigtimes\limits_{i=1}^d [\hat{f}(m_i), \hat{f}(M_i)] &\\
+                       & = & \bigtimes\limits_{i=1}^d [\frac{m_i-\vec{t}_i}{s}, \frac{M_i-\vec{t}_i}{s}] &\
+\end{matrix}
+$$
+
+Defining $\vec{t}$ and $s$ is trivial.
+
+$$ \vec{t}_i = \begin{pmatrix} m_1 \\ m_2 \\ \vdots \\ m_d \end{pmatrix}$$
+$$ s = \max_i(M_i-m_i)$$
+
+Therefore $\hat{f}(\mathcal{H}) \subseteq [0, 1]^d \Leftrightarrow \hat{f}: \mathcal{H} \rightarrow [0,1]^d$
+
+A subtle, yet important, modification is made to the computed $s$ in order to truely
+map each dimension to $[0,1)$ instead of $[0,1]$.
+
+$$ s' = s + \epsilon(s) $$
+
+We define $\epsilon(s)$ as the smallest possible value such that $s + \epsilon(s) > s$.
+In mathematics when $s \in \mathbb{R}$ there is no such value, due to the uncountably
+infinite nature of $\mathbb{R}$. But computers use finite bits to represent their
+floating point values and so $\epsilon(s)$ is the machine's epsilon value.
+
+\subsection{Quantization}
+We use an $l$-bit quiantizer to quantize $\hat{\mathcal{V}}$.
+$$q^{(l)}(x) = \lfloor x \cdot 2^l \rfloor, \forall x \in [0, 1)$$
+
+This trivialy generalizes to $d$ dimensions.
+$$\vec{q^{(l)}}(\vec{x}) = \begin{pmatrix}
+  q^{(l)}(x_1)\\
+  q^{(l)}(x_2)\\
+  \vdots \\
+  q^{(l)}(x_d)
+\end{pmatrix}, \forall \vec{x} \in [0,1)^d$$
+
+Therefore each dimension is mapped to an $l$-bit word. The bits of
+this word approximate the location of the point in the given
+dimension.
+
+
+The output of the quantizer can be mapped $1-1$ to a value in the
+original space $[0,1]$. This real value representation can be
+trivialy computed as such
+$$ \tilde{x}_l = \frac{q^{(l)}(x)}{2^l} $$
+Since $2^l-1$ is the max value of the quantizer.
+
+Assume that $q^{(l)}(x) = (b_1b_2b_3\dots b_l)_2$ where $b_1$ is the most significant
+bit of the output word and $b_l$ the least significant.
+$$
+\begin{matrix}
+  \tilde{x}_l & = & \frac{q^{(l)}(x)}{2^l} \\
+              & = & \frac{(b_1b_2b_3\dots b_l)_2}{2^l} \\
+              & = & \frac{\sum\limits_{i=1}^{l} b_i \cdot 2^{l-i}}{2^l} \\
+              & = & \sum\limits_{i=1}^{l}\frac{b_i \cdot 2^{l-i}}{2^l} \\
+              & = & \sum\limits_{i=1}^{l}b_i \cdot 2^{-i} \\
+\end{matrix}
+$$
+
+So then, each bit controls a diminishing power of $2$. The geometric interpretation of
+this is that
+\begin{itemize}
+  \item The most significant bit indicates in which half the real value lies, $1$
+  for the right-most half and $0$ for the left-most.
+  \item The second most significant bit indicates the same but for the previously
+  selected half's half.
+  \item And so on.
+\end{itemize}
+
+
+\subsection{Morton encoding}
+Computing the Z-order curve from the output of the quantizer is done via bit-interleaving.
+Assuming that for some input $\vec{x}$
+$$
+\vec{q}^{(l)}(\vec{x}) =
+\begin{pmatrix}
+  (b_{11}b_{12}b_{13}\dots b_{1l})_2\\
+  (b_{21}b_{22}b_{23}\dots b_{2l})_2\\
+  \vdots \\
+  (b_{d1}b_{d2}b_{d3}\dots b_{dl})_2
+\end{pmatrix}
+$$
+
+Interleaving the bits would compute the following binary value.
+
+$$(b_{11}b_{21}\dots b_{d1}\quad b_{12}b_{22}\dots b_{d2}\quad \dots \quad b_{1l}b_{2l}\dots b_{dl})_2$$
+
+This binary value is semanticaly divided into $l$ groups of $d$ bits. Each bit in a group
+describe the location of the input vector $\vec{x}$ in the respective dimension, the
+first bit describes the first dimension, the second bit the second dimension and so on.
+Each group of bits describe wether the value is located in the left-most or the
+right-most part of the respective level, the first group describe the whole space
+$[0,1)^d$, the second group describe the selected half of the first group and so on.
+
+\section{Limitations}
+
+\subsection{Curse of high dimensionality}
+Data of high dimensionality exponatialy get sparser as the number of dimensions grow.
+The sparser the data the lower the probabilities are for two points to occupy the same
+bin. In actuallity after the first recursion of the algorithm each element is most
+probably assigned a unique bin, which defeats the purpose of the subdivision.
+
+\subsection{Morton word size}
+To compute the Z-order curve we first quantize the real values with an $l$-bit
+quantizer and then we interleave $d$ words of $l$ bits. The resulting binary value has in
+total $l\cdot d$ bits which are stored as an \verb|Unsigned| value, limiting the size of the
+value to $128$ bits, which is the biggest \verb|Unsigned| built-in integer.
+
+\subsection{Space complexity}
+We perform the partial sorting of the $V$, the cloud of points in an out-of-order fashion,
+which marks the space complexity needed for the algorithm as $O(n\cdot d)$ where $n$ is
+the number of points and $d$ the number of dimensions. An in-place implementation would
+trade-off time complexity for space complexity.
+
+
 
 \section{Introduction}
 
