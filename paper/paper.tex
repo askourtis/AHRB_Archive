@@ -51,16 +51,6 @@ $$b = \left\{\begin{matrix}
     R &\triangleq& [h, M)
   \end{matrix}
   $$
-
-  \begin{figure}
-    \centerline{
-      \includegraphics[width=10pc]{figures/spatial-division.png}
-      \includegraphics[width=10pc]{figures/spatial-tree.png}
-    }
-    \caption{ (a) Spatial division, (b) Spatial tree }
-    \label{spatial-tree}
-  \end{figure}
-
 \end{definition}
 
 
@@ -85,7 +75,14 @@ $$b = \left\{\begin{matrix}
     \item right-most half of the left-most half of the second dimension.
   \end{itemize}
 
-  % TODO Insert gaphs
+  \begin{figure}
+    \centerline{
+      \includegraphics[width=10pc]{figures/spatial-division.png}
+      \includegraphics[width=10pc]{figures/spatial-tree.png}
+    }
+    \caption{ (a) Spatial division, (b) Spatial tree }
+    \label{spatial-tree}
+  \end{figure}
 \end{example}
 
 \subsection{Reordering}
@@ -343,9 +340,25 @@ $[0,1)^d$, the second group describe the selected half of the first group and so
 
 \subsection{Curse of high dimensionality}
 Data of high dimensionality exponatialy get sparser as the number of dimensions grow.
-The sparser the data the lower the probabilities are for two points to occupy the same
-bin. In actuallity after the first recursion of the algorithm each element is most
-probably assigned a unique bin, which defeats the purpose of the subdivision.
+The sparser the data the lower the probabilities are for any two points occupying the same
+bin.
+\\\\
+Assuming uniformly distributed $d$-dimensional $n$ points and a target tree of
+$l$ levels, the expected number of points per leaf node is $E[n_\textrm{leaf}]$.
+
+$$E[n_\textrm{leaf}] = \frac{n}{2^{l\cdot d}}$$
+
+The expected number of points per leaf node drops exponentialy with $d$. This extends
+to most distributions of points since the probability of a point belonging to a node is a
+function of the $d$-dimensional area that the node occupies $A^{(d)}_l $.
+In the case of uniform distribution the probability is directly proportional
+to this area.
+
+$$A^{(d)}_l = 2^{-l \cdot d}$$
+
+In general the area is $A^{(d)}_l = s\cdot 2^{-l \cdot d}$ where $s$ is the scaling factor
+of the original space. But since scaling does not affect the relative density of the
+points the probability is not affected.
 
 \subsection{Morton word size}
 To compute the Z-order curve we first quantize the real values with an $l$-bit
@@ -361,9 +374,72 @@ trade-off time complexity for space complexity.
 
 
 \section{Experiments}
+\subsection{Dimensionality scaling}
+For $n=10^5$ uniformly distributed points we computed the average number of points in a
+leaf node of the tree. The graph \ref{b_vs_d} shows that for increasingly higher
+dimensional spaces the data get exponatialy sparser.
+
+\begin{figure}[!ht]
+  \centerline{
+    \includegraphics[width=20pc]{figures/experiments/b_vs_d.png}
+  }
+  \caption{ Exponential decrease of mean number of points per node }
+  \label{b_vs_d}
+\end{figure}
+
 
 \subsection{Uniform data 2 dimensions}
+
+\begin{lstlisting}[language = Julia]
+julia> d, n = size(X)
+(2, 100000)
+
+julia> l = 4;
+
+julia> @time t = regural_bin(UInt128,
+                             X,
+                             l,
+                             1;
+                             dims=2);
+0.025399 seconds (... 43.93% gc time)
+\end{lstlisting}
+
+For uniformly distributed data we expect that each leaf node will contain
+$n_{\textrm{node}}$ points.
+$$n_{\textrm{node}} = \frac{n}{2^{l\cdot d}}$$
+
+In this case $n = 10^5$, $d = 2$ and $l = 4$. So the expected number of points within a
+node is $n_{\textrm{node}} = \frac{10^5}{2^{4\cdot 2}} =390.625$.
+
+\begin{figure}[!ht]
+  \centerline{
+    \includegraphics[width=20pc]{figures/uniform_2d/hist.png}
+  }
+  \caption{ Distribution of node length }
+  \label{uniform-2d-hist}
+\end{figure}
+
+The curse of high dimensionality can be deduced by the formula of $n_{\textrm{node}}$.
+The number of possible leaf nodes is $2^{l\cdot d}$ which grows exponentialy with $l$ and
+$d$, meaning that for larger $d$ the total number of points $n$ must also grow exponentialy
+to keep the ratio constant.
+
 \subsection{Uniform data 10 dimensions}
+
+\begin{lstlisting}[language = Julia]
+julia> d, n = size(X)
+(10, 100000)
+
+julia> l = 1;
+
+julia> @time t = regural_bin(UInt128,
+                             X,
+                             l,
+                             1;
+                             dims=2);
+0.046737 seconds (2.48 k allocations: 30.789 MiB)
+\end{lstlisting}
+
 \subsection{MNIST data 10 dimensions}
 \subsection{PBMC data 10 dimensions}
 \subsection{PBMC 36 dimensions}
