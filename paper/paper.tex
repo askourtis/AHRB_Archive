@@ -21,70 +21,122 @@ finding nearest neighbors and their applications.
 \end{abstract}
 
 \section{Overview}
-To partition a cloud of points, \verb|AdaptiveHierarchicalRegularBinning.jl| maps each
-point to a $1$ dimensional space filling curve, Morton or Z-order curve. The hierarchical
-tree is defined by the Morton index of each point.
+To partition a cloud of points of $d$ dimensions,
+\verb|AdaptiveHierarchicalRegularBinning.jl| maps each point to a $1$ dimensional
+space filling curve, Morton or Z-order curve. The hierarchical tree is defined by the
+Morton index of each point.
 
-\begin{example}
-  For a $2$-dimensional space a target spatial tree with $2$ levels (other than the root).
-  Assume we compute a morton index of $(0100)_2$. The 2 most significant bits address the
-  top most level of the tree (the one directly under root).
 
-  The most significant bit
-  addresses the first dimension and the value $(0)_2$ signifies that the point lies in
-  the left-most half of the dimension.
 
-  The second most significant bit addresses the
-  second dimension and a value of $(1)_2$ signifies that the point lies in the right-most
-  half of the dimension (typicaly the lower-most half since this is $2$-dimensional,
-  right-most is a more generic term used for any number of dimensions).
+\subsection{Morton encoding}
+Morton indices are binary words grouped into $l$ levels of $d$ bits each. Each level
+describes in an increasingly finer detail the area in which the point resides. The
+first level, comprised of the $d$ most significant bits of the morton index, describes
+only in which half of each dimension the point lies.
+
+$$b = \left\{\begin{matrix}
+  (0)_2, & \textrm{Left-most half}  \\
+  (1)_2, & \textrm{Right-most half}
+\end{matrix}\right.$$
+
+
+\begin{definition}[Left/Right-mostness]
+  For a $1$-dimensional simply connected space $A = [m, M)$, we say that
+  $x$ lies in the Left-most half, if and only if, $x<h=\frac{M+m}{2}$.
+  Otherwise $x$ lies in the Right-most half.
+
+  $$
+  \begin{matrix}
+    L &\triangleq& [m, h) \\
+    R &\triangleq& [h, M)
+  \end{matrix}
+  $$
+
+  \begin{figure}
+    \centerline{
+      \includegraphics[width=10pc]{figures/spatial-division.png}
+      \includegraphics[width=10pc]{figures/spatial-tree.png}
+    }
+    \caption{ (a) Spatial division, (b) Spatial tree }
+    \label{spatial-tree}
+  \end{figure}
+
+\end{definition}
+
+
+\begin{example}[Morton index interpretation]
+  Figure \ref{spatial-tree} depicts a $2$-dimensional space and a target spatial
+  tree of at most $2$ levels (other than the root). The morton index, in such a tree,
+  will have a length of $2\cdot2=4$. Assume we compute a morton index of $(0011)_2$.
+  The first group is comprised of the $2$ most significant bits and addresses the first
+  level of the tree (the one directly under root).
+  \\\\
+  The most significant bit addresses the first dimension and the second most significant
+  bit addresses the second dimension. The value $(0)_2$ signifies that the point lies in
+  the left-most half of each dimension.
+  \\\\
+  The next group describes the same quantities only a level lower. Left/Right-mostness
+  is defined in the context of that level. Both values are $(1)_2$ so the point lies in
+  the right-most half of both dimensions in the second level.
+  \\\\
+  Summarizing, the point belongs to the:
+  \begin{itemize}
+    \item right-most half of the left-most half of the first dimension.
+    \item right-most half of the left-most half of the second dimension.
+  \end{itemize}
 
   % TODO Insert gaphs
 \end{example}
 
-Sorting in terms of these morton indices group the points togather for efficient access
-when the tree is iterated over. One natural way of sorting these indices is the
-\verb|Radixsort| where we sort based on the most significant radix and recurse for the
-remaining bits in the same fashion. This type of sorting process respects the nature of
-the morton index and thus can offer benefits over other sorting algorithms.
+\subsection{Reordering}
+Sorting in terms of the morton indices groups the points together for efficient access
+when the tree is iterated over. We use the \verb|MSD Radixsort| algorithm to perform the
+soring.
 
-One benefit of the \verb|Radixsort| is that it offers partial sorting capabilities. When
-the number of items within a bin is not high enough, there is no reason to continue the
-spatial partitioning and therefore there is no reason to continue sorting. Stopping
-\verb|Radixsort| at a specific level of recursion translates to stoping the tree at that
-level, there is a $1-1$ corespondance of the \verb|Radixsort| recursion and the tree.
+\subsubsection{MSD Radixsort}
+\verb|MSD Radixsort| sorts based on the most significant radix. Afterwards, elements
+with the same most significant digit (MSD) form a consecutive sub-array. The algorithm
+recurses for each such sub-array selecting the next digit in line. Selecting a large
+radix is crucial for the algorithm since a large radix lowers the number of recursions.
+\\\\
+\verb|MSD Radixsort| respects the hierarchical nature of the target tree and thus it offers
+benefits over other sorting algorithms. Each recursion of the algorithm sorts a section
+of the resulting tree. If the radix matches the number of dimensions then each recursion
+sorts the current level of the tree.
+\\\\
+When the number of elements of a sub array is small the recursion for that sub-array stops.
+This leads to a partialy sorted array by design. Not sorting small sub-arrays leads to less
+overhead without sacrificing future performance. Nodes with unsorted morton indices will
+always be leaf nodes.
+\\\\
+\verb|MSD Radixsort| can be trivialy parallelized. After the initial sorting, the formed
+sub-arrays are mutually exclusive, meaning that no data dependencies are shared between
+them. Each sub-array can then be sorted in parallel.
 
-\verb|Radixsort| can also be trivialy parallelized, after sorting the based on the most
-significant radix the sub-arrays left to sort are mutually independant and thus offer
-themselves to easy parallelization.
+\subsubsection{Countsort}
+\verb|MSD Radixsort| needs a sorting algorithm to sort the selected radix in each recursion.
+\verb|Countsort| is a great fit for this type of sorting. \verb|Countsort| trades
+space complexity for runtime complexity. The algorithm uses an auxilary vector, whose
+size scales linearly with the selected radix $O(r)$. The benefit is the runtime
+complexity is order $O(n + r)$ where $n$ is the size of the array to sort. Typically, $n \gg r$
+and so the runtime complexity reduces to $O(n)$.
+\\\\
+\verb|Countsort| can be parallelized as well, though not as trivialy. The parallel version
+of \verb|Countsort| requires space complexity of $O(t\cdot r)$ and runtime complexity of
+$O(n/t + t\cdot r)$ where $t$ is the number of threads in the system. As long as $n$ is
+sufficiently large $n \gg t^2\cdot r$ then the parallel implementation is preferable since
+the runtime complexity reduces to $O(n/t)$.
 
-Sorting based on a radix is not trivial. Any sorting algorithm will work just fine but
-since small radix means small number of discrete values \verb|Countsort| is used.
-\verb|Countsort| offers trades-off spatial complexity for runtime complexity.
-The worst case runtime complexity of the algorithm is $O(n)$, which means that
-it scales linearly with the size of the array to sort. While the spatial complexity for
-the in-place variant is $O(max(r))$ where $r$ is the selected radix and $max(r)$ is the
-maximum value allowed by $r$.
+\subsubsection{Radix trade-off}
+While \verb|MSD Radixsort| fairs better for larger radices, \verb|Countsort| reduces in
+performance.
 
-\verb|Countsort| can be parallelized as well, though not trivialy. The parallel variant
-requires a larger spatial complexity of $O(t\cdot max(r))$ where $t$ is the number of
-tasks allocated for the parallelization. The runtime complexity drops by the same factor
-$t$, $O(n/t)$. Spatial complexity is a limites the capabilities of the algorithm but even
-for large values of $t$ this auxilary space needed is not a bad trade-off.
-
-An other trade-off to note is the selection of radix. The bigger the radix the larger
-the load on the \verb|Countsort|. Since the time complexity of \verb|Countsort| is $O(n)$
-and even better for the parallel variant $O(n/t)$ we prefer that most of the work is
-delegated to \verb|Countsort| instead of the recursion process of \verb|Radixsort|.
-Selecting a large radix though, might have an adverse effect. The auxilary space needed
-is based on the max value of the radix which exponatialy grows as the radix grows, meaning
-that we quickly run out of memory for larger matrices.
-
-Our implementation is radix-agnostic, meaning that the user can select the radix. But the
-default approach is a radix of $16$ bits. $16$ bits means that at the worst case of
-morton indices of $128$ bits we will need to recurse $8$ times and the auxilary space needed
-is a factor of $2^{16} = 64kB$.
-
+\begin{example}
+  For a $128$-bit morton index, a radix of $16$-bits is selected.
+  The number of recursions in this case is $8$ which is fairly small and the condition
+  $n\gg t^2\cdot r$ can still be satisfied.
+  % TODO: Graphs runtime complexity vs r
+\end{example}
 
 \section{Usage}
 
@@ -308,6 +360,13 @@ the number of points and $d$ the number of dimensions. An in-place implementatio
 trade-off time complexity for space complexity.
 
 
+\section{Experiments}
+
+\subsection{Uniform data 2 dimensions}
+\subsection{Uniform data 10 dimensions}
+\subsection{MNIST data 10 dimensions}
+\subsection{PBMC data 10 dimensions}
+\subsection{PBMC 36 dimensions}
 
 \section{Introduction}
 

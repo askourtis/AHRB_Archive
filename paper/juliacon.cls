@@ -395,13 +395,13 @@ minus 2pt\itemsep 2pt plus 1pt minus .5pt}
 \newtheorem{lemma}[theorem]{Lemma}
 \newtheorem{exam}{Example}
 \newenvironment{example}{%
-\italicenvfalse
-\begin{exam}}{\end{exam}\italicenvtrue}
+
+\begin{exam}}{\end{exam}}
 %
 \newtheorem{defi}[theorem]{Definition}
 \newenvironment{definition}{%
-\italicenvfalse
-\begin{defi}}{\end{defi}\italicenvtrue}
+
+\begin{defi}}{\end{defi}}
 %
 \def\@begintheorem#1#2{\trivlist \item[\hskip 10pt\hskip
    \labelsep{\sc{#1}\hskip 5pt\relax #2.}] \itshape}
@@ -938,6 +938,8 @@ to\hsize{\if@nfeven\else\hfil\fi\box\@tempboxa\if@nfeven\hfil\fi}
 \usepackage{jlcode}
 
 \usepackage{authblk}
+\usepackage{amsmath}
+\usepackage{mathtools}
 
 \endinput
 
