@@ -4,7 +4,7 @@ import Base: length, eltype, range
 using DocStringExtensions
 
 # TODO: Export less things
-export SpatialTree, TreeInfo, NodeInfo, regural_bin, nindex, cindices, range, low, high, depth, pindex, bitlen, enctype, leaddim, eltype, points, encpoints, isdeep, qcenter, qbox, staticselectdim
+export SpatialTree, TreeInfo, NodeInfo, regural_bin, nindex, cindices, range, low, high, depth, pindex, bitlen, enctype, leaddim, eltype, points, encpoints, isdeep, qcenter, center, qbox, box, staticselectdim, regural_bin, original_perm, original_perm!
 
 
 include("utilities.jl")
@@ -27,11 +27,12 @@ Constructs the tree.
   - `RT`: The type of the morton vector.
   - `V`: The cloud of points.
   - `l`: The maximum tree depth.
+  - `smlth`: Small threshold.
 
 # Keyword Arguments
   - `dims`: Leading dimension
 """
-function regural_bin(RT, V, l; dims)
+function regural_bin(RT, V, l, smlth; dims)
   R = Vector{RT}(undef, size(V, dims))
   bitlen = size(V, dims==1 ? 2 : 1)
   offset, scale = spatial_encode!(R, V, l; dims=Val(dims), center=false)
@@ -63,7 +64,7 @@ function regural_bin(RT, V, l; dims)
   Ra[P] .= Rb[P]
   Ia[P] .= Ib[P]
 
-  tree = make_tree(V, R, l, bitlen, scale, offset; dims=dims)
+  tree = make_tree(V, R, I, l, smlth, bitlen, scale, offset; dims=dims)
 
   return tree
 end

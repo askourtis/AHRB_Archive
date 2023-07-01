@@ -36,15 +36,18 @@ Represents the tree information.
 
   - `points`: The cloud of points that the tree spans.
   - `encoded`: The encoded cloud of `points`.
+  - `perm`: The permutation of the `points`.
   - `scale`: The original scale of the dimensions of the `points`.
   - `offset`: The per dimension offset of the `points`.
   - `nodes`: Per node information.
   - `children`: Per node children.
   - `maxdepth`: The maximum depth of the tree.
+  - `smlth`: Small threshold.
 """
 struct TreeInfo{T, E, B, D}
   points::Matrix{T}
   encoded::Vector{E}
+  perm::Vector{UInt}
 
   scale::T
   offset::Vector{T}
@@ -53,6 +56,7 @@ struct TreeInfo{T, E, B, D}
   children::Vector{Vector{UInt}}
 
   maxdepth::UInt
+  smlth::UInt
 end
 
 
@@ -89,7 +93,7 @@ pindex(n::NodeInfo) = n.pidx
 #!SECTION
 
 #SECTION: TreeInfo
-TreeInfo(V, R, N, C, bitlen, depth, scale, offset; dims) = TreeInfo{eltype(V), eltype(R), bitlen, dims}(V, R, scale, offset, N, C, depth)
+TreeInfo(V, R, I, N, C, bitlen, depth, smlth, scale, offset; dims) = TreeInfo{eltype(V), eltype(R), bitlen, dims}(V, R, I, scale, offset, N, C, depth, smlth)
 TreeInfo(t::SpatialTree) = t.info
 
 eltype(  ::TreeInfo{T}                          ) where T = T
@@ -116,6 +120,7 @@ end
 points(t::SpatialTree) = @inbounds staticselectdim(TreeInfo(t).points, Val(leaddim(t)), range(t))
 encpoints(t::SpatialTree) = @inbounds @view TreeInfo(t).encoded[range(t)]
 isdeep(t::SpatialTree) = depth(t) >= TreeInfo(t).maxdepth
+issmall(t::SpatialTree) = length(t) <= TreeInfo(t).smlth
 #!SECTION
 
 #SECTION: AbstractTrees
@@ -188,16 +193,22 @@ $(SIGNATURES)
 Creates a tree representation of a Morton Array.
 
 # Arguments
+  - `V`: Cloud of points.
   - `R`: The array to convert.
-  - `l`: Maximum depth.
-  - `bitlen`: The bitlen of the each bit group.
+  - `maxdpt`: Maximum depth.
+  - `smlth`: Small threshold.
+  - `scale`: Scalar for the original coordinates.
+  - `offset`: Per dimension offset.
+
+# Keyword Arguments
+  - `dims`: Leading dimension
 """
-function make_tree(V, R, maxdpt, bitlen, scale, offset; dims)
+function make_tree(V, R, I, maxdpt, smlth, bitlen, scale, offset; dims)
   _, nodes_len = count_nodes(R, 1, length(R), maxdpt, 0, bitlen)
   nodes    = Vector{NodeInfo}(undef, nodes_len)
   children = [UInt[] for _ in 1:nodes_len]
 
-  info = TreeInfo(V, R, nodes, children, bitlen, maxdpt, scale, offset; dims=dims)
+  info = TreeInfo(V, R, I, nodes, children, bitlen, maxdpt, smlth, scale, offset; dims=dims)
   @inbounds nodes[1] = NodeInfo(1, length(R), 0, 1, 0)
 
   tree = SpatialTree(info, 1)
@@ -213,13 +224,11 @@ $(SIGNATURES)
 Creates a tree representation of a Morton Array.
 
 # Arguments
-  - `tree`: The tree information.
-  - `root`: The current tree node.
-  - `l`: Maximum depth.
+  - `node`: The current node to build.
   - `idx`: Current node index.
 """
 function make_tree_impl(node, idx)
-  isdeep(node) && return idx
+  (isdeep(node) || issmall(node)) && return idx
 
   tag(x) = radixshft(x, depth(node)+1, bitlen(node))
 
@@ -242,9 +251,12 @@ function make_tree_impl(node, idx)
 end
 
 
+scalar(tree::SpatialTree) = tree.info.scale
+translation(tree::SpatialTree) = tree.info.offset
+
 qcenter!(center, node::SpatialTree) = qcenter!(center, nodevalue(node), bitlen(node), depth(node))
-qcenter(T, node::SpatialTree) = qcenter(T, nodevalue(node), bitlen(node), depth(node))
-qcenter(node::SpatialTree) = qcenter(eltype(node), nodevalue(node), bitlen(node), depth(node))
+qcenter(T, node::SpatialTree) = qcenter!(Vector{T}(undef, bitlen(node)), node)
+qcenter(node::SpatialTree) = qcenter(eltype(node), node)
 
 
 function qcenter!(center, tag, bitlen, depth)
@@ -258,21 +270,36 @@ function qcenter!(center, tag, bitlen, depth)
     @inbounds center[bit] = x/2
     tag >>>= 1
   end
-end
 
-function qcenter(T, tag, bitlen, depth)
-  center = Vector{T}(undef, bitlen)
-  qcenter!(center, tag, bitlen, depth)
   return center
 end
 
-qcenter(tag, bitlen, depth) = qcenter(typeof(eps()), tag, bitlen, depth)
-
+function center!(center, node::SpatialTree)
+  center .= qcenter!(center,  node) ./ scalar(node) .+ translation(node)
+  return center
+end
+center(T, node::SpatialTree) = center!(Vector{T}(undef, bitlen(node)), node)
+center(node::SpatialTree) = center(eltype(node), node)
 
 
 qbox(T, node::SpatialTree)  = qbox(T, depth(node))
 qbox(node::SpatialTree) = qbox(eltype(node), depth(node))
 
-qbox(T, depth) = one(T)/(1<<depth)
+qbox(T, depth) = one(T)/(1<<(depth+1))
 qbox(depth) = qbox(typeof(eps()), depth)
 
+
+function box!(box, node::SpatialTree)
+  box .= qbox(eltype(box), node) ./ scalar(node)
+  return box
+end
+box(T, node::SpatialTree) = box!(Vector{T}(undef, bitlen(node)), node)
+box(node::SpatialTree) = box(eltype(node), node)
+
+Base.@propagate_inbounds function original_perm!(tree::SpatialTree, I, D)
+  staticselectdim(I, Val(leaddim(tree.info)), tree.info.perm) .= tree.info.perm[I]
+  staticselectdim(D, Val(leaddim(tree.info)), tree.info.perm) .= D
+  return I, D
+end
+
+Base.@propagate_inbounds original_perm(tree, I, D) = original_perm!(tree, copy(I), copy(D))
