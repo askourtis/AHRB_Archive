@@ -135,6 +135,27 @@ performance.
   % TODO: Graphs runtime complexity vs r
 \end{example}
 
+Our implementation utilizes a watefall scheme to adapt to the needs of the problem at
+hand. There are $3$ different thresholds that can tune the runtime performance of the
+spatial partitioning.
+
+\begin{itemize}
+  \item \verb|Huge| threshold
+  \item \verb|Big| threshold
+  \item \verb|Small| threshold
+\end{itemize}
+
+$$ \textrm{Huge} > \textrm{Big} > \textrm{Small} $$
+
+For sub-arrays that are larger than the \verb|Huge| threshold our implementation
+uses parallel \verb|MSD Radixsort|, otherwise it falls back to the non parallel variant.
+\\\\
+For sub-arrays that are larger than the \verb|Big| threshold our implementation uses
+parallel \verb|Countsort|, otherwise it falls back to the non parallel variant.
+\\\\
+For sub-arrays that are smaller than the \verb|Small| threshold our implementation
+stops the recursion of \verb|MSD Radixsort|.
+
 \section{Usage}
 
 \begin{lstlisting}[language = Bash]
@@ -374,6 +395,10 @@ trade-off time complexity for space complexity.
 
 
 \section{Experiments}
+All conducted experiments are executed with a selected radix of $16$ bits and the array
+is fully sorted.
+
+
 \subsection{Dimensionality scaling}
 For $n=10^5$ uniformly distributed points we computed the average number of points in a
 leaf node of the tree. The graph \ref{b_vs_d} shows that for increasingly higher
@@ -386,6 +411,44 @@ dimensional spaces the data get exponatialy sparser.
   \caption{ Exponential decrease of mean number of points per node }
   \label{b_vs_d}
 \end{figure}
+
+
+\subsection{Runtime performance}
+\subsubsection{Scaling with number of points}
+For $l=4$ max tree depth and $d=4$ number of dimensions
+\verb|AdaptiveHierarchicalRegularBinning.jl| scales linearly with the size of the array
+$n$.
+
+\begin{figure}[!ht]
+  \centerline{
+    \includegraphics[width=20pc]{figures/experiments/scale_n.png}
+  }
+  \caption{ Linear runtime scaling }
+  \label{scale_n}
+\end{figure}
+
+\subsubsection{Runtime dimensionality scaling}
+High dimensionality should affect the morton encoding since bit-interleaving scales
+linearly with the dimensions. The reordering should be affected slightly since each
+element
+
+% TODO
+
+\subsubsection{Scaling with number of threads}
+For $n=10^6$ points of $d=10$ dimensions and a target tree of $l=4$
+levels, we can see from \ref{scale_t} that the scaling of
+\verb|AdaptiveHierarchicalRegularBinning.jl| drops exponatialy
+with the number of threads.
+
+\begin{figure}[!ht]
+  \centerline{
+    \includegraphics[width=20pc]{figures/experiments/scale_t.png}
+  }
+  \caption{ Parallelization scaling }
+  \label{scale_t}
+\end{figure}
+
+
 
 
 \subsection{Uniform data 2 dimensions}
