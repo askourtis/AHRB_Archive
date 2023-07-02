@@ -156,6 +156,14 @@ parallel \verb|Countsort|, otherwise it falls back to the non parallel variant.
 For sub-arrays that are smaller than the \verb|Small| threshold our implementation
 stops the recursion of \verb|MSD Radixsort|.
 
+
+\subsection{Tree}
+The resulting tree is memory-dense, meaning that it does not store empty nodes.
+The root node encapsulates the entire cloud of points, while each child node points to
+a consecutive sub-array of those points. This characteristic holds true for every node
+within the tree. Each node is also aware if its level, parent and children.
+
+
 \section{Usage}
 
 \begin{lstlisting}[language = Bash]
@@ -189,17 +197,18 @@ stops the recursion of \verb|MSD Radixsort|.
 
 \section{Theory}
 Assuming a set of $n$ $d$-dimensional points $\mathcal{V}$, we represent $\mathcal{V}$ as
-the $d \times n$ matrix $V$. \verb|AdaptiveHierarchicalRegularBinning| uses Morton
+the $d \times n$ matrix $V$. \verb|AdaptiveHierarchicalRegularBinning.jl| uses Morton
 encoding to map each $d$-dimenensional point of $\mathcal{V}$ to a $1$-dimenensional
 space filling curve, Z-order curve.
-
+\\\\
 The mapping proccess requires 3 distinct steps.
 
 \begin{itemize}
   \item Normalize $\mathcal{V}$ such that each vector $\vec{v}$ of $\mathcal{V}$
-  satisfies $\vec{v} \in [0,1)^d$
-  \item Quantize each dimension using an $l$-bit quantizer
-  \item Bit-interleave the output of the quantizer
+  satisfies $\vec{v} \in [0,1)^d$.
+  \item Quantize each dimension using an $l$-bit quantizer, where $l$ is the maximum
+  depth of the target tree.
+  \item Bit-interleave the output of the quantizer.
 \end{itemize}
 
 \subsection{Normalization}
@@ -228,8 +237,8 @@ hypercube.
 $$ \hat{\mathcal{V}} \triangleq \left\{ \hat{f}\left(v\right) : v \in \mathcal{V} \right\}  $$
 $$ \vec{v} \in [0, 1)^d, \forall \vec{v} \in \hat{\mathcal{V}} $$
 
-Furthermore $\hat{f}$ must satisfy one more property. Namely, relative distances
-must be preserved.
+Furthermore, the function $\hat{f}$ must satisfy an additional property, namely,
+the preservation of relative distances.
 
 $$ ||\vec{v_1} - \vec{v_2}|| \geq ||\vec{v_1} - \vec{v_3}|| \Leftrightarrow ||\hat{f}(\vec{v_1}) - \hat{f}(\vec{v_2})|| \geq ||\hat{f}(\vec{v_1}) - \hat{f}(\vec{v_3})||$$
 $$ \forall \vec{v_1}, \vec{v_2}, \vec{v_3} \in \mathcal{V} $$
@@ -262,30 +271,33 @@ It can be proven that this definition satisfies the constraint
 $$$$
 \end{proof}
 
-The effect that $\vec{t}$ and $s$ have on the space $\mathcal{H}$ can be computed as such
+We require the image of $\hat{f}$ to be $\hat{f}(\mathcal{H}) = [0,1)^d$. Thus we can
+compute $\vec{t}$ and $s$ to satisfy that constraint.
+
 $$
 \begin{matrix}
-  \hat{f}(\mathcal{H}) & = & \bigtimes\limits_{i=1}^d [\hat{f}(m_i), \hat{f}(M_i)] &\\
+  \hat{f}(\mathcal{H}) & \triangleq & \bigtimes\limits_{i=1}^d [\hat{f}(m_i), \hat{f}(M_i)] &\\
                        & = & \bigtimes\limits_{i=1}^d [\frac{m_i-\vec{t}_i}{s}, \frac{M_i-\vec{t}_i}{s}] &\
 \end{matrix}
 $$
 
-Defining $\vec{t}$ and $s$ is trivial.
+Hence,
 
 $$ \vec{t}_i = \begin{pmatrix} m_1 \\ m_2 \\ \vdots \\ m_d \end{pmatrix}$$
 $$ s = \max_i(M_i-m_i)$$
 
 Therefore $\hat{f}(\mathcal{H}) \subseteq [0, 1]^d \Leftrightarrow \hat{f}: \mathcal{H} \rightarrow [0,1]^d$
-
-A subtle, yet important, modification is made to the computed $s$ in order to truely
-map each dimension to $[0,1)$ instead of $[0,1]$.
+\\\\
+A subtle, yet crucial modification is made to the computed $s$ in order to
+accurately map each dimension to the interval $[0,1)$, rather than the inclusive range
+$[0,1]$.
 
 $$ s' = s + \epsilon(s) $$
 
 We define $\epsilon(s)$ as the smallest possible value such that $s + \epsilon(s) > s$.
-In mathematics when $s \in \mathbb{R}$ there is no such value, due to the uncountably
-infinite nature of $\mathbb{R}$. But computers use finite bits to represent their
-floating point values and so $\epsilon(s)$ is the machine's epsilon value.
+In the standard real number system, when $s \in \mathbb{R}$, there is no such value,
+due to the uncountably infinite nature of $\mathbb{R}$. But computers use finite bits
+to represent floating point values and so $\epsilon(s)$ is the machine's epsilon value.
 
 \subsection{Quantization}
 We use an $l$-bit quiantizer to quantize $\hat{\mathcal{V}}$.
@@ -302,13 +314,11 @@ $$\vec{q^{(l)}}(\vec{x}) = \begin{pmatrix}
 Therefore each dimension is mapped to an $l$-bit word. The bits of
 this word approximate the location of the point in the given
 dimension.
-
-
+\\\\
 The output of the quantizer can be mapped $1-1$ to a value in the
-original space $[0,1]$. This real value representation can be
-trivialy computed as such
+original space $[0,1)$.
+
 $$ \tilde{x}_l = \frac{q^{(l)}(x)}{2^l} $$
-Since $2^l-1$ is the max value of the quantizer.
 
 Assume that $q^{(l)}(x) = (b_1b_2b_3\dots b_l)_2$ where $b_1$ is the most significant
 bit of the output word and $b_l$ the least significant.
@@ -396,10 +406,10 @@ trade-off time complexity for space complexity.
 
 \section{Experiments}
 All conducted experiments are executed with a selected radix of $16$ bits and the array
-is fully sorted.
+is fully sorted, unless stated otherwise.
 
 
-\subsection{Dimensionality scaling}
+\subsection{Curse of high dimensionality}
 For $n=10^5$ uniformly distributed points we computed the average number of points in a
 leaf node of the tree. The graph \ref{b_vs_d} shows that for increasingly higher
 dimensional spaces the data get exponatialy sparser.
@@ -408,16 +418,16 @@ dimensional spaces the data get exponatialy sparser.
   \centerline{
     \includegraphics[width=20pc]{figures/experiments/b_vs_d.png}
   }
-  \caption{ Exponential decrease of mean number of points per node }
+  \caption{ Exponential decrease of mean number of points per leaf node }
   \label{b_vs_d}
 \end{figure}
 
 
 \subsection{Runtime performance}
 \subsubsection{Scaling with number of points}
-For $l=4$ max tree depth and $d=4$ number of dimensions
-\verb|AdaptiveHierarchicalRegularBinning.jl| scales linearly with the size of the array
-$n$.
+For uniformly distributed $4$-dimensional data and $l=4$ max tree depth, the graph
+\ref{scale_n} suggests that \verb|AdaptiveHierarchicalRegularBinning.jl| scales
+linearly with the size $n$ of the array.
 
 \begin{figure}[!ht]
   \centerline{
@@ -427,16 +437,16 @@ $n$.
   \label{scale_n}
 \end{figure}
 
-\subsubsection{Runtime dimensionality scaling}
-High dimensionality should affect the morton encoding since bit-interleaving scales
-linearly with the dimensions. The reordering should be affected slightly since each
-element
-
 % TODO
+% \subsubsection{Scaling with the number of dimensions}
+% High dimensionality should affect the morton encoding since bit-interleaving scales
+% linearly with the dimensions. The reordering should be affected slightly since each
+% element
+
 
 \subsubsection{Scaling with number of threads}
-For $n=10^6$ points of $d=10$ dimensions and a target tree of $l=4$
-levels, we can see from \ref{scale_t} that the scaling of
+For uniformly distributed $n=10^6$ points of $d=10$ dimensions and a target tree of
+$l=4$ levels, graph \ref{scale_t} suggests that the runtime of
 \verb|AdaptiveHierarchicalRegularBinning.jl| drops exponatialy
 with the number of threads.
 
@@ -447,6 +457,13 @@ with the number of threads.
   \caption{ Parallelization scaling }
   \label{scale_t}
 \end{figure}
+
+We would expect that for a large enough number of threads the performance would worsen,
+since the runtime complexity of the \verb|Countsort| algorithm suggests that if not
+$n \gg t^2 \cdot r$ then the parallel variant is worse than the sequential one. Our
+implementation gets around that limitation using the waterfall scheme for its
+parallelization and thus for small sub-arrays the sequential variant for the
+\verb|Countsort| is used.
 
 
 
@@ -468,45 +485,33 @@ julia> @time t = regural_bin(UInt128,
 \end{lstlisting}
 
 For uniformly distributed data we expect that each leaf node will contain
-$n_{\textrm{node}}$ points.
-$$n_{\textrm{node}} = \frac{n}{2^{l\cdot d}}$$
+$n_{\textrm{leaf}}$ points.
+$$n_{\textrm{leaf}} = \frac{n}{2^{l\cdot d}}$$
 
 In this case $n = 10^5$, $d = 2$ and $l = 4$. So the expected number of points within a
-node is $n_{\textrm{node}} = \frac{10^5}{2^{4\cdot 2}} =390.625$.
+node is $n_{\textrm{leaf}} = \frac{10^5}{2^{4\cdot 2}} =390.625$.
 
 \begin{figure}[!ht]
   \centerline{
     \includegraphics[width=20pc]{figures/uniform_2d/hist.png}
   }
-  \caption{ Distribution of node length }
+  \caption{ Distribution of leaf node length }
   \label{uniform-2d-hist}
 \end{figure}
 
-The curse of high dimensionality can be deduced by the formula of $n_{\textrm{node}}$.
-The number of possible leaf nodes is $2^{l\cdot d}$ which grows exponentialy with $l$ and
-$d$, meaning that for larger $d$ the total number of points $n$ must also grow exponentialy
-to keep the ratio constant.
+Graph \ref{uniform-2d-hist} agrees with the theoreticaly expected value, although there
+is some variance. This is to be expected, increasing the number of points will reduce
+the variance then the histogram will tend more to the expected singular value.
 
 \subsection{Uniform data 10 dimensions}
-
-\begin{lstlisting}[language = Julia]
-julia> d, n = size(X)
-(10, 100000)
-
-julia> l = 1;
-
-julia> @time t = regural_bin(UInt128,
-                             X,
-                             l,
-                             1;
-                             dims=2);
-0.046737 seconds (2.48 k allocations: 30.789 MiB)
-\end{lstlisting}
-
 \subsection{MNIST data 10 dimensions}
 \subsection{PBMC data 10 dimensions}
 \subsection{PBMC 36 dimensions}
 
+
+% TODO Remove
+\pagebreak
+\section{Juliacon stuff, kept for reference}
 \section{Introduction}
 
 The \LaTeX{} document preparation system is a special version of the
