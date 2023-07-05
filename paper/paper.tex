@@ -416,7 +416,7 @@ dimensional spaces the data get exponatialy sparser.
 
 \begin{figure}[!ht]
   \centerline{
-    \includegraphics[width=20pc]{figures/experiments/b_vs_d.png}
+    \includegraphics[width=10pc]{figures/experiments/b_vs_d.png}
   }
   \caption{ Exponential decrease of mean number of points per leaf node }
   \label{b_vs_d}
@@ -431,7 +431,7 @@ linearly with the size $n$ of the array.
 
 \begin{figure}[!ht]
   \centerline{
-    \includegraphics[width=20pc]{figures/experiments/scale_n.png}
+    \includegraphics[width=10pc]{figures/experiments/scale_n.png}
   }
   \caption{ Linear runtime scaling }
   \label{scale_n}
@@ -452,7 +452,7 @@ with the number of threads.
 
 \begin{figure}[!ht]
   \centerline{
-    \includegraphics[width=20pc]{figures/experiments/scale_t.png}
+    \includegraphics[width=10pc]{figures/experiments/scale_t.png}
   }
   \caption{ Parallelization scaling }
   \label{scale_t}
@@ -493,7 +493,7 @@ node is $n_{\textrm{leaf}} = \frac{10^5}{2^{4\cdot 2}} =390.625$.
 
 \begin{figure}[!ht]
   \centerline{
-    \includegraphics[width=20pc]{figures/uniform_2d/hist.png}
+    \includegraphics[width=10pc]{figures/uniform_2d/hist.png}
   }
   \caption{ Distribution of leaf node length }
   \label{uniform-2d-hist}
@@ -503,11 +503,81 @@ Graph \ref{uniform-2d-hist} agrees with the theoreticaly expected value, althoug
 is some variance. This is to be expected, increasing the number of points will reduce
 the variance then the histogram will tend more to the expected singular value.
 
-\subsection{Uniform data 10 dimensions}
-\subsection{MNIST data 10 dimensions}
-\subsection{PBMC data 10 dimensions}
-\subsection{PBMC 36 dimensions}
+\subsection{PBMC 30 dimensions}
 
+The PBMC dataset exhibits outliers, which introduces challenges in the
+normalization process. It causes the majority of data points to be clustered
+into a single node for the first three levels of the tree. As depicted in
+Figures \ref{pbmc-30-hist} (a), (b), and (c), the majority of points are
+concentrated within a maximum of two nodes at these initial levels.
+\\\\
+However, the fourth and final level of the tree highlights the impact of the
+dataset's high dimensionality. As indicated by Figure \ref{pbmc-30-hist} (d),
+it becomes apparent that most points are now assigned to nodes with a length of
+only $1$.
+
+\begin{figure}[!ht]
+  \centerline{
+    \includegraphics[width=10pc]{figures/experiments/pbmc_30/hist_1.png}
+    \includegraphics[width=10pc]{figures/experiments/pbmc_30/hist_2.png}
+  }
+  \centerline{
+    \includegraphics[width=10pc]{figures/experiments/pbmc_30/hist_3.png}
+    \includegraphics[width=10pc]{figures/experiments/pbmc_30/hist_4.png}
+  }
+
+  \caption{
+    30-Dimensional PBMC data distribution of leaf node length for tree level
+    (a) 1 (b) 2 (c) 3 (d) 4.
+  }
+  \label{pbmc-30-hist}
+\end{figure}
+
+
+\subsection{MNIST 30 dimensions}
+
+Unlike the PBMC dataset, the MNIST dataset does not exhibit significant
+outliers. As a result, the distribution between the leaf nodes in the tree
+becomes more uniform. Figure \ref{mnist-30-hist} (a) reveals that a majority of
+points are concentrated within leaf nodes that possess sufficiently large
+lengths. This favorable grouping indicates a more balanced distribution of data
+points.
+\\\\
+However, as we progress to higher levels of the tree, the impact of the
+dataset's high dimensionality becomes apparent. Consequently, the points become
+exponentially sparser, leading to the formation of singleton leaf nodes.
+This observation is clearly demonstrated in Figure \ref{mnist-30-hist} (b).
+
+\begin{figure}[!ht]
+  \centerline{
+    \includegraphics[width=10pc]{figures/experiments/mnist_30/hist_1.png}
+    \includegraphics[width=10pc]{figures/experiments/mnist_30/hist_2.png}
+  }
+
+  \caption{
+    30-Dimensional MNIST data distribution of leaf node length for tree level
+    (a) 1 (b) 2
+  }
+  \label{mnist-30-hist}
+\end{figure}
+
+Figure \ref{mnist-30-hist-th} indicates that adjusting the \verb|Small|
+threshold to approximately $10000$ causes a shift in nodes from the region of
+$\geq 10000$ to the histogram's small node region, while leaving the rest of
+the nodes intact. This outcome is expected because nearly all points in the
+$\geq 10000$ region are mapped to a singleton node in the subsequent recursion.
+
+\begin{figure}[!ht]
+  \centerline{
+    \includegraphics[width=10pc]{figures/experiments/mnist_30/hist_3.png}
+  }
+
+  \caption{
+    30-Dimensional MNIST data distribution of leaf node length for tree level
+    2. Using Small threshold of 10000.
+  }
+  \label{mnist-30-hist-th}
+\end{figure}
 
 % TODO Remove
 \pagebreak

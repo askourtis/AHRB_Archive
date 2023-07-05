@@ -26,3 +26,118 @@
 	volume = {38},
 	year = {1990}
 }
+
+@article{FMM,
+author = {Sun, Xiaobai and Pitsianis, Nikos P.},
+title = {A Matrix Version of the Fast Multipole Method},
+journal = {SIAM Review},
+volume = {43},
+number = {2},
+pages = {289-300},
+year = {2001},
+doi = {10.1137/S0036144500370835},
+URL = {
+        https://doi.org/10.1137/S0036144500370835
+},
+eprint = {
+        https://doi.org/10.1137/S0036144500370835
+},
+abstract = { We present a matrix interpretation of the three-dimensional fast multipole method (FMM). The FMM is for efficient computation of gravitational/electrostatic potentials and fields. It has found various applications and inspired the design of many efficient algorithms. The one-dimensional FMM is well interpreted in terms of matrix computations. The three-dimensional matrix version reveals the underlying matrix structures and computational techniques used in FMM. It also provides a unified view of algorithm variants as well as existing and emerging implementations of the FMM. }
+}
+
+
+@InProceedings{pmlr-v28-curtin13,
+  title = 	 {Tree-Independent Dual-Tree Algorithms},
+  author = 	 {Curtin, Ryan and March, William and Ram, Parikshit and Anderson, David and Gray, Alexander and Isbell, Charles},
+  booktitle = 	 {Proceedings of the 30th International Conference on Machine Learning},
+  pages = 	 {1435--1443},
+  year = 	 {2013},
+  editor = 	 {Dasgupta, Sanjoy and McAllester, David},
+  volume = 	 {28},
+  number =       {3},
+  series = 	 {Proceedings of Machine Learning Research},
+  address = 	 {Atlanta, Georgia, USA},
+  month = 	 {17--19 Jun},
+  publisher =    {PMLR},
+  pdf = 	 {http://proceedings.mlr.press/v28/curtin13.pdf},
+  url = 	 {https://proceedings.mlr.press/v28/curtin13.html},
+  abstract = 	 {Dual-tree algorithms are a widely used class of branch-and-bound algorithms.  Unfortunately, developing dual-tree algorithms for use with different trees and problems is often complex and burdensome.  We introduce a four-part logical split: the tree, the traversal, the point-to-point base case, and the pruning rule.  We provide a meta-algorithm which allows development of dual-tree algorithms in a tree-independent manner and easy extension to entirely new types of trees.  Representations are provided  for five common algorithms; for k-nearest neighbor search, this leads to a novel, tighter pruning bound. The meta-algorithm also allows  straightforward extensions to massively parallel settings.}
+}
+
+
+
+
+
+
+
+
+@article{doi:10.1137/0909044,
+author = {Carrier, J. and Greengard, L. and Rokhlin, V.},
+title = {A Fast Adaptive Multipole Algorithm for Particle Simulations},
+journal = {SIAM Journal on Scientific and Statistical Computing},
+volume = {9},
+number = {4},
+pages = {669-686},
+year = {1988},
+doi = {10.1137/0909044},
+URL = {
+        https://doi.org/10.1137/0909044
+},
+eprint = {
+        https://doi.org/10.1137/0909044
+},
+abstract = { This paper describes an algorithm for the rapid evaluation of the potential and force fields in systems involving large numbers of particles whose interactions are described by Coulomb’s law. Unlike previously published schemes, the algorithm of this paper has an asymptotic CPU time estimate of \$O(N)\$, where N is the number of particles in the simulation, and does not depend on the statistics of the distribution for its efficient performance. The numerical examples we present indicate that it should be an algorithm of choice in many situations of practical interest. }
+}
+
+
+
+
+
+
+
+@article{doi:10.1260/1748-3018.7.3.301,
+author = {R. Yokota},
+title ={An FMM Based on Dual Tree Traversal for Many-Core Architectures},
+journal = {Journal of Algorithms \& Computational Technology},
+volume = {7},
+number = {3},
+pages = {301-324},
+year = {2013},
+doi = {10.1260/1748-3018.7.3.301},
+
+URL = {
+        https://doi.org/10.1260/1748-3018.7.3.301
+
+},
+eprint = {
+        https://doi.org/10.1260/1748-3018.7.3.301
+
+}
+,
+    abstract = { The present work attempts to integrate the independent efforts in the fast N-body community to create the fastest N-body library for many-core and heterogenous architectures. Focus is placed on low accuracy optimizations, in response to the recent interest to use FMM as a preconditioner for sparse linear solvers. A direct comparison with other state-of-the-art fast N-body codes demonstrates that orders of magnitude increase in performance can be achieved by careful selection of the optimal algorithm and low-level optimization of the code. The current N-body solver uses a fast multipole method with an efficient strategy for finding the list of cell-cell interactions by a dual tree traversal. A task-based threading model is used to maximize thread-level parallelism and intra-node load-balancing. In order to extract the full potential of the SIMD units on the latest CPUs, the inner kernels are optimized using AVX instructions. }
+}
+
+@InProceedings{10.1007/978-3-319-25087-8_7,
+author="Curtin, Ryan R.",
+editor="Amato, Giuseppe
+and Connor, Richard
+and Falchi, Fabrizio
+and Gennaro, Claudio",
+title="Faster Dual-Tree Traversal for Nearest Neighbor Search",
+booktitle="Similarity Search and Applications",
+year="2015",
+publisher="Springer International Publishing",
+address="Cham",
+pages="77--89",
+abstract="Nearest neighbor search is a nearly ubiquitous problem in computer science. When nearest neighbors are desired for a query set instead of a single query point, dual-tree algorithms often provide the fastest solution, especially in low-to-medium dimensions (i.e. up to a hundred or so), and can give exact results or absolute approximation guarantees, unlike hashing techniques. Using a recent decomposition of dual-tree algorithms into modular pieces, we propose a new piece: an improved traversal strategy; it is applicable to any dual-tree algorithm. Applied to nearest neighbor search using both kd-trees and ball trees, the new strategy demonstrably outperforms the previous fastest approaches. Other problems the traversal may easily be applied to include kernel density estimation and max-kernel search.",
+isbn="978-3-319-25087-8"
+}
+
+
+% - Greengard, L. (1990). The numerical solution of the n‐body problem. Computers in physics, 4(2), 142-152.
+%
+% - Cho, M., Brand, D., Bordawekar, R., Finkler, U., Kulandaisamy, V., & Puri, R. (2015). PARADIS: An efficient parallel algorithm for in-place radix sort. Proceedings of the VLDB Endowment, 8(12), 1518-1529.
+%
+% - Zagha, M., & Blelloch, G. E. (1991, August). Radix sort for vector multiprocessors. In Proceedings of the 1991 ACM/IEEE conference on Supercomputing (pp. 712-721).
+%
+%- Morton, G. M. (1966). A computer oriented geodetic data base and a new technique in file sequencing.

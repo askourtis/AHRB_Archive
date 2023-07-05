@@ -1,9 +1,10 @@
 \begin{thebibliography}{1}
 
-\bibitem{bezanson2017julia}
-Jeff Bezanson, Alan Edelman, Stefan Karpinski, and Viral~B Shah.
-Julia: A fresh approach to numerical computing.
-{\em SIAM review}, 59(1):65--98, 2017.
-\href{http://dx.doi.org/10.1137/141000671}{doi:10.1137/141000671}.
+\bibitem{FMM}
+Xiaobai Sun and Nikos~P. Pitsianis.
+A matrix version of the fast multipole method.
+{\em SIAM Review}, 43(2):289--300, 2001.
+\href{http://dx.doi.org/10.1137/S0036144500370835}{doi:10.1137/S0036144500370835}.
+https://doi.org/10.1137/S0036144500370835.
 
 \end{thebibliography}
