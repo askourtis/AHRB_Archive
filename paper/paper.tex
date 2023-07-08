@@ -21,14 +21,14 @@ finding nearest neighbors and their applications.
 \end{abstract}
 
 
-\section{The need for space partitioning algorithms}
+\section{Motivation}
 Space partitioning algorithms play a pivotal role in improving the runtime
 performance of computational algorithms by dividing data into smaller,
 manageable sections. These algorithms are designed to optimize the performance
 of computational algorithms by efficiently partitioning the data space in a
 manner that aligns with the specific requirements of the problem domain.
 \\\\
-In this section, we delve into the need for specific space partitioning
+In this section, we delve into the need for space partitioning
 algorithms and their significance in addressing the computational bottlenecks
 faced by certain algorithms. We examine three prominent application domains:
 k-nearest neighbors (kNN) search, collision detection, and the fast multipole
@@ -49,9 +49,9 @@ drastically improves the runtime performance of the kNN algorithm by reducing
 the computational burden associated with distance calculations.
 
 \subsection{Collision Detection}
-Collision detection algorithms also stand to benefit from specific space
+Collision detection algorithms also stand to benefit from space
 partitioning techniques. In scenarios where it is necessary to determine if a
-collision occurs between objects in a three-dimensional space, the all-vs-all
+collision occurs between objects in a $d$-dimensional space, the all-vs-all
 model becomes impractical for large-scale simulations. By partitioning the
 space into smaller regions or bins, collision detection algorithms can focus
 computations solely on objects within the same partition. This significantly
