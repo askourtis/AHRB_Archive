@@ -1,10 +1,24 @@
 \begin{thebibliography}{1}
 
+\bibitem{AMM}
+J.~Carrier, L.~Greengard, and V.~Rokhlin.
+A fast adaptive multipole algorithm for particle simulations.
+{\em SIAM Journal on Scientific and Statistical Computing}, 9(4):669--686,
+  1988.
+\href{http://dx.doi.org/10.1137/0909044}{doi:10.1137/0909044}.
+https://doi.org/10.1137/0909044.
+
 \bibitem{FMM}
 Xiaobai Sun and Nikos~P. Pitsianis.
 A matrix version of the fast multipole method.
 {\em SIAM Review}, 43(2):289--300, 2001.
 \href{http://dx.doi.org/10.1137/S0036144500370835}{doi:10.1137/S0036144500370835}.
 https://doi.org/10.1137/S0036144500370835.
+
+\bibitem{radixsort}
+Marco Zagha and Guy~E Blelloch.
+Radix sort for vector multiprocessors.
+In {\em Proceedings of the 1991 ACM/IEEE conference on Supercomputing}, pages
+  712--721, 1991.
 
 \end{thebibliography}
