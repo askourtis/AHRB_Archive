@@ -35,7 +35,7 @@ function searchTree(tree, query, r=Inf, i=-1)
       return dists[k], range(tree)[k]
     end
   else
-    for child in sort!(collect(children(tree)), by=(x)->point2boxDist(query, x))
+    for child in children(tree, by=(x)->point2boxDist(query, x))
       predicate(child, query, r) || continue
       r, i = searchTree(child, query, r, i)
     end
